@@ -2,15 +2,30 @@
 
 В этом проекте нужно реализовать упрощённый пайплайн VLM: изображение с графиком, схемой, таблицей или геометрической фигурой + текстовый вопрос -> текстовый ответ.
 
-Задание специально разделено на три трека, чтобы его можно было честно сдавать при разном доступе к вычислительным мощностям:
+Задание специально разделено на три уровня данных:
+
+| Набор | Где лежит | Зачем нужен | Обязательно? |
+|---|---|---|---|
+| **toy_math_vqa** | `assets/toy_math_vqa/` | Быстрая проверка, что код, форматы, processor/model/train/benchmark работают | Да |
+| **math_vqa_medium** | `assets/math_vqa_medium/` | Более содержательная синтетическая практика и отчёт без внешних скачиваний | Рекомендуется |
+| **MathVista testmini** | скачивается отдельно с Hugging Face | Проверка качества / benchmark на профильном visual math наборе | Для расширенного трека / бонуса |
+
+Главное: **toy-набор не является датасетом для оценки качества**. Он нужен как smoke-check, чтобы public tests быстро запускались на CPU. Для содержательной оценки качества используйте MathVista testmini или преподавательский hidden math set.
+
+## Треки по железу
 
 | Трек | Ресурс у студента | Что обязательно | Что не обязательно |
 |---|---:|---|---|
-| **A. CPU-only** | GPU нет | Реализовать код, пройти unit/smoke tests | Обучать VLM до нужного качества |
-| **B. Small GPU** | 6–12 GB VRAM | Adapter-only обучение на маленьком math subset | LoRA и большой benchmark |
-| **C. A100-20GB** | 1/4 A100, около 20 GB VRAM | Adapter pretrain + SFT с LoRA | Rank 256 и тяжёлый leaderboard |
+| **A. CPU-only** | GPU нет | Реализовать код, пройти unit/smoke tests на toy-наборе | Обучать VLM до качества |
+| **B. Small GPU** | 6–12 GB VRAM | Adapter-only обучение на маленьком/medium math subset | LoRA и большой benchmark |
+| **C. A100-20GB** | 1/4 A100, около 20 GB VRAM | Adapter pretrain + SFT с LoRA, MathVista eval | Rank 256 и тяжёлый leaderboard |
 
-Основная оценка ставится за корректный инженерный пайплайн. Качество на hidden math benchmark используется только для расширенного трека или бонуса.
+Основная оценка ставится за корректный инженерный пайплайн. Качество на MathVista/hidden math benchmark используется только для расширенного трека или бонуса.
+
+
+## Оценивание
+
+Задание оценивается в **10 баллов**. Критерии: `dataset.py` — 1.5, `processor.py` — 2.0, `model.py` — 2.0, `train.py` — 1.0, `benchmark.py` — 1.0, public tests — 1.0, отчёт — 1.0. Подробности см. в [`GRADING.md`](GRADING.md).
 
 ## Быстрый старт
 
@@ -40,7 +55,7 @@ hw/benchmark.py    # prompt для benchmark, parse ответа, accuracy
 
 ## Данные
 
-В репозитории есть маленький toy-набор:
+### 1. Toy-набор: только проверка работоспособности
 
 ```text
 assets/toy_math_vqa/
@@ -48,7 +63,29 @@ assets/toy_math_vqa/
   images/*.png
 ```
 
-Он нужен для public-тестов и smoke-запусков. 
+Этот набор используется public tests. Он маленький специально: тесты должны быстро запускаться на CPU и в GitHub Actions.
+
+### 2. Medium-набор: локальная практика
+
+```text
+assets/math_vqa_medium/
+  manifest.jsonl
+  images/*.png
+```
+
+Это синтетический набор побольше. Его можно использовать для отчёта, проверки train loop и первых экспериментов без скачивания внешних данных.
+
+### 3. MathVista: проверка качества
+
+MathVista **не включён в репозиторий**. Его нужно скачать отдельно, если вы делаете расширенный трек или quality evaluation:
+
+```bash
+python -m pip install -e ".[ml]"
+python scripts/prepare_mathvista_testmini.py --out assets/mathvista_testmini --max-samples 200
+python -m hw.benchmark --config configs/eval_mathvista_testmini.yaml
+```
+
+Не коммитьте скачанный MathVista в GitHub. Папка `assets/mathvista_testmini/` добавлена в `.gitignore`.
 
 ## Команды по трекам
 
@@ -67,12 +104,13 @@ python -m hw.train --config configs/track_b_small_gpu.yaml
 python -m hw.benchmark --config configs/inference_math.yaml
 ```
 
-### Track C: A100-20GB
+### Track C: A100-20GB / quality evaluation
 
 ```bash
 python -m hw.train --config configs/track_c_a100_pretrain.yaml
 python -m hw.train --config configs/track_c_a100_sft.yaml
-python -m hw.benchmark --config configs/inference_math.yaml
+python scripts/prepare_mathvista_testmini.py --out assets/mathvista_testmini --max-samples 1000
+python -m hw.benchmark --config configs/eval_mathvista_testmini.yaml
 ```
 
 ## Что сдавать
