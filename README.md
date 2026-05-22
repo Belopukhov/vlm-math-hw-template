@@ -6,7 +6,7 @@
 
 | Трек | Ресурс у студента | Что обязательно | Что не обязательно |
 |---|---:|---|---|
-| **A. CPU-only** | GPU нет | Реализовать код, пройти unit/smoke tests | Обучать VLM до нужного качества |
+| **A. CPU-only** | GPU нет | Реализовать код, пройти unit/smoke tests | Получить высокое качество |
 | **B. Small GPU** | 6–12 GB VRAM | Adapter-only обучение на маленьком math subset | LoRA и большой benchmark |
 | **C. A100-20GB** | 1/4 A100, около 20 GB VRAM | Adapter pretrain + SFT с LoRA | Rank 256 и тяжёлый leaderboard |
 
