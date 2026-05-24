@@ -63,14 +63,6 @@ class MathVQADataset(Dataset[MathVQASample]):
 
     Expected manifest fields:
         id, split, image, question, options, answer, subject, source(optional)
-
-    TODO for students:
-        - read manifest;
-        - filter by split;
-        - support max_samples;
-        - resolve image paths relative to manifest directory;
-        - open images as RGB PIL.Image;
-        - return MathVQASample.
     """
 
     def __init__(
@@ -78,20 +70,58 @@ class MathVQADataset(Dataset[MathVQASample]):
         manifest_path: str | Path,
         split: str = "train",
         max_samples: int | None = None,
+        subjects: Iterable[str] | None = None,
     ) -> None:
         self.manifest_path = Path(manifest_path)
         self.root = self.manifest_path.parent
         self.split = split
         self.max_samples = max_samples
+        self.subjects = set(subjects) if subjects is not None else None
 
-        # TODO: implement loading/filtering.
-        # Hint: use load_jsonl(self.manifest_path).
-        raise NotImplementedError("Implement MathVQADataset.__init__")
+        rows = load_jsonl(self.manifest_path)
+
+        filtered: list[dict[str, Any]] = []
+        for row in rows:
+            if split is not None and row.get("split") != split:
+                continue
+            if self.subjects is not None and row.get("subject") not in self.subjects:
+                continue
+            filtered.append(row)
+
+        if max_samples is not None:
+            filtered = filtered[: int(max_samples)]
+
+        self.rows: list[dict[str, Any]] = filtered
 
     def __len__(self) -> int:
-        # TODO: return number of filtered rows.
-        raise NotImplementedError("Implement MathVQADataset.__len__")
+        return len(self.rows)
+
+    def _resolve_image_path(self, image_field: str) -> Path:
+        path = Path(image_field)
+        if not path.is_absolute():
+            path = self.root / path
+        return path
 
     def __getitem__(self, idx: int) -> MathVQASample:
-        # TODO: construct and return MathVQASample.
-        raise NotImplementedError("Implement MathVQADataset.__getitem__")
+        row = self.rows[idx]
+
+        image_path = self._resolve_image_path(row["image"])
+        with Image.open(image_path) as img:
+            image = img.convert("RGB")
+
+        question = sanitize_question(str(row.get("question", "")))
+        options_raw = row.get("options", []) or []
+        options = [str(o) for o in options_raw]
+        answer = str(row.get("answer", "")).strip()
+        subject = str(row.get("subject", "unknown"))
+        source = str(row.get("source", "unknown"))
+
+        return MathVQASample(
+            id=str(row.get("id", f"sample_{idx}")),
+            image=image,
+            question=question,
+            options=options,
+            answer=answer,
+            subject=subject,
+            source=source,
+        )
